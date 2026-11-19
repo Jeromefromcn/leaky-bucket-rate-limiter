@@ -1,6 +1,7 @@
 package com.example.ratelimiter.core;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -46,15 +47,19 @@ public final class RateLimiter {
     public AllowResult allowRequest(String userId, double timestamp) {
         Objects.requireNonNull(userId, "userId");
 
-        Bucket existing = buckets.get(userId);
-        double level = existing == null ? 0 : existing.level();
+        Bucket bucket = buckets.get(userId);
+        double previousLastUpdated = bucket == null ? timestamp : bucket.lastUpdated();
+        double level = bucket == null
+                ? 0
+                : Math.max(0, bucket.level() - leakRate * Math.max(0, timestamp - bucket.lastUpdated()));
         if (level + 1 > capacity) {
             return new AllowResult(false, this);
         }
         double newLevel = level + 1;
+        double newLastUpdated = Math.max(timestamp, previousLastUpdated);
 
         Map<String, Bucket> next = new HashMap<>(buckets);
-        next.put(userId, new Bucket(newLevel, timestamp));
+        next.put(userId, new Bucket(newLevel, newLastUpdated));
         return new AllowResult(true, new RateLimiter(capacity, leakRate, Map.copyOf(next), clock));
     }
 
@@ -64,7 +69,12 @@ public final class RateLimiter {
         if (bucket == null) {
             return Optional.empty();
         }
+        Instant now = clock.instant();
+        double nowSeconds = now.getEpochSecond() + now.getNano() / 1_000_000_000.0;
+        double level = Math.max(0,
+                bucket.level() - leakRate * Math.max(0, nowSeconds - bucket.lastUpdated()));
+        double remaining = Math.max(0, capacity - level);
         return Optional.of(new BucketSnapshot(
-                userId, capacity, leakRate, bucket.level(), 0, bucket.lastUpdated()));
+                userId, capacity, leakRate, level, remaining, bucket.lastUpdated()));
     }
 }
