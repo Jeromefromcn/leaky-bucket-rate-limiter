@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RateLimiterTest {
@@ -31,5 +33,21 @@ class RateLimiterTest {
 
         assertTrue(result.allowed());
         assertEquals(1.0, result.limiter().getBucketState("user-1").orElseThrow().level(), DELTA);
+    }
+
+    @Test
+    void allowsBurstUpToCapacityThenRejects() {
+        RateLimiter limiter = RateLimiter.create(CAPACITY, LEAK_RATE, clock);
+
+        for (int i = 0; i < CAPACITY; i++) {
+            AllowResult result = limiter.allowRequest("user-1", T0);
+            assertTrue(result.allowed(), "request " + (i + 1) + " should be allowed");
+            limiter = result.limiter();
+        }
+
+        AllowResult rejected = limiter.allowRequest("user-1", T0);
+
+        assertFalse(rejected.allowed());
+        assertSame(limiter, rejected.limiter());
     }
 }

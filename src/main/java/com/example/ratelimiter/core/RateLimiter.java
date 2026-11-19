@@ -47,7 +47,11 @@ public final class RateLimiter {
         Objects.requireNonNull(userId, "userId");
 
         Bucket existing = buckets.get(userId);
-        double newLevel = (existing == null ? 0 : existing.level()) + 1;
+        double level = existing == null ? 0 : existing.level();
+        if (level + 1 > capacity) {
+            return new AllowResult(false, this);
+        }
+        double newLevel = level + 1;
 
         Map<String, Bucket> next = new HashMap<>(buckets);
         next.put(userId, new Bucket(newLevel, timestamp));
