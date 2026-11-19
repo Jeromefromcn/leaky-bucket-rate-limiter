@@ -1,0 +1,3 @@
+rate-limiter:
+  capacity: ${RATE_LIMITER_CAPACITY:5}
+  leak-rate: ${RATE_LIMITER_LEAK_RATE:1.0}
