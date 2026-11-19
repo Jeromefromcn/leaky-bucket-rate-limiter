@@ -129,6 +129,33 @@ class RateLimiterTest {
         assertEquals(5.0, snapshot.remaining(), DELTA);
     }
 
+    @Test
+    void usersHaveIndependentBuckets() {
+        RateLimiter fullForA = fill("a");
+
+        AllowResult forB = fullForA.allowRequest("b", T0);
+
+        assertTrue(forB.allowed());
+        assertEquals(1.0, forB.limiter().getBucketState("b").orElseThrow().level(), DELTA);
+        assertEquals(5.0, forB.limiter().getBucketState("a").orElseThrow().level(), DELTA);
+    }
+
+    @Test
+    void unknownUserHasNoBucketState() {
+        RateLimiter limiter = RateLimiter.create(CAPACITY, LEAK_RATE, clock);
+
+        assertTrue(limiter.getBucketState("nobody").isEmpty());
+    }
+
+    @Test
+    void zeroLeakRateNeverFreesCapacity() {
+        RateLimiter limiter = RateLimiter.create(2, 0.0, clock)
+                .allowRequest("user-1", T0).limiter()
+                .allowRequest("user-1", T0).limiter();
+
+        assertFalse(limiter.allowRequest("user-1", T0 + 1_000_000).allowed());
+    }
+
     private RateLimiter fill(String userId) {
         RateLimiter limiter = RateLimiter.create(CAPACITY, LEAK_RATE, clock);
         for (int i = 0; i < CAPACITY; i++) {
