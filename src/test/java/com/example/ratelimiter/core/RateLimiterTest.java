@@ -9,6 +9,7 @@ import java.time.Instant;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RateLimiterTest {
@@ -154,6 +155,27 @@ class RateLimiterTest {
                 .allowRequest("user-1", T0).limiter();
 
         assertFalse(limiter.allowRequest("user-1", T0 + 1_000_000).allowed());
+    }
+
+    @Test
+    void rejectsInvalidConfiguration() {
+        assertThrows(IllegalArgumentException.class, () -> RateLimiter.create(0, LEAK_RATE, clock));
+        assertThrows(IllegalArgumentException.class, () -> RateLimiter.create(-1, LEAK_RATE, clock));
+        assertThrows(IllegalArgumentException.class, () -> RateLimiter.create(CAPACITY, -0.1, clock));
+        assertThrows(IllegalArgumentException.class,
+                () -> RateLimiter.create(Double.NaN, LEAK_RATE, clock));
+        assertThrows(IllegalArgumentException.class,
+                () -> RateLimiter.create(CAPACITY, Double.POSITIVE_INFINITY, clock));
+    }
+
+    @Test
+    void rejectsNonFiniteTimestamp() {
+        RateLimiter limiter = RateLimiter.create(CAPACITY, LEAK_RATE, clock);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> limiter.allowRequest("user-1", Double.NaN));
+        assertThrows(IllegalArgumentException.class,
+                () -> limiter.allowRequest("user-1", Double.POSITIVE_INFINITY));
     }
 
     private RateLimiter fill(String userId) {

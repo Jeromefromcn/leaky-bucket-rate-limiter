@@ -22,6 +22,12 @@ public final class RateLimiter {
     private final Clock clock;
 
     private RateLimiter(double capacity, double leakRate, Map<String, Bucket> buckets, Clock clock) {
+        if (!Double.isFinite(capacity) || capacity < 1) {
+            throw new IllegalArgumentException("capacity must be finite and >= 1");
+        }
+        if (!Double.isFinite(leakRate) || leakRate < 0) {
+            throw new IllegalArgumentException("leakRate must be finite and >= 0");
+        }
         this.capacity = capacity;
         this.leakRate = leakRate;
         this.buckets = buckets;
@@ -46,6 +52,9 @@ public final class RateLimiter {
 
     public AllowResult allowRequest(String userId, double timestamp) {
         Objects.requireNonNull(userId, "userId");
+        if (!Double.isFinite(timestamp)) {
+            throw new IllegalArgumentException("timestamp must be finite");
+        }
 
         Bucket bucket = buckets.get(userId);
         double previousLastUpdated = bucket == null ? timestamp : bucket.lastUpdated();
